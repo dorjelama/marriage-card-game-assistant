@@ -12,6 +12,7 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const isDarkMode = colorScheme === 'dark';
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
@@ -30,9 +31,9 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack screenOptions={{
         headerStyle: {
-          backgroundColor: 'white'
+          backgroundColor: isDarkMode ? 'black' : 'white'
         },
-        headerTintColor: 'black',
+        headerTintColor: isDarkMode ? 'white' : 'black',
         headerTitleStyle: {
           fontWeight: 'bold'
         }
