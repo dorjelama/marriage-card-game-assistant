@@ -269,11 +269,9 @@ export default function CalculationsScreen() {
         containerStyle={styles.radioGroupContainer}
         labelStyle={styles.radioLabel}
       />
-
       <TouchableOpacity style={styles.button} onPress={handleSubmit}>
         <Text style={styles.buttonText}>Calculate</Text>
       </TouchableOpacity>
-
     </ScrollView>
   );
 }
@@ -294,8 +292,16 @@ const getStyles = (isDarkMode: boolean) =>
     subtitle: {
       fontSize: 18,
       fontWeight: 'bold',
-      marginVertical: 20,
-      textAlign: 'center',
+      marginBottom: 16,
+      color: isDarkMode ? 'white' : 'black',
+    },
+    radioGroupContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flexWrap: 'wrap'
+    },
+    radioLabel: {
+      fontSize: 16,
       color: isDarkMode ? 'white' : 'black',
     },
     headers: {
@@ -358,14 +364,5 @@ const getStyles = (isDarkMode: boolean) =>
       color: '#fff',
       fontSize: 16,
       fontWeight: 'bold',
-    },
-    radioGroupContainer: {
-      flexDirection: 'row',
-      justifyContent: "center",
-      marginVertical: 10,
-      paddingHorizontal: 20,
-    },
-    radioLabel: {
-      color: isDarkMode ? 'white' : 'black',
-    },
+    }
   });
