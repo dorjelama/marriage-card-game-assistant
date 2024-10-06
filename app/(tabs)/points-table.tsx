@@ -88,6 +88,19 @@ const PointsTable: React.FC = () => {
     return Array.from(new Set(allPlayerNames)); // Ensure uniqueness
   };
 
+  // Helper function to group games by player set
+  const groupGamesByPlayerSet = (games: PlayerResult[][]): { [key: string]: PlayerResult[][] } => {
+    const groupedGames: { [key: string]: PlayerResult[][] } = {};
+    games.forEach((game) => {
+      const playerSet = game.map((player) => player.name).sort().join(", ");
+      if (!groupedGames[playerSet]) {
+        groupedGames[playerSet] = [];
+      }
+      groupedGames[playerSet].push(game);
+    });
+    return groupedGames;
+  };
+
   const playerNamesFromFirstGame = (games?.[0] || []).map(player => player.name);
 
   const allUniquePlayerNames = games ? getAllUniquePlayerNames(games) : [];
@@ -142,6 +155,8 @@ const PointsTable: React.FC = () => {
     );
   };
 
+  // Group games by player set
+  const groupedGames = games ? groupGamesByPlayerSet(games) : {};
 
   return (
     <View style={{ flex: 1 }}>
@@ -155,65 +170,67 @@ const PointsTable: React.FC = () => {
           <Button title="Clear History" onPress={clearHistory} />
           <Text style={styles.title}>Points Table</Text>
 
-          {/* Header Row with Unique Player Names */}
-          <View style={styles.row}>
-            <Text style={[styles.cell, styles.headerText]}>Game</Text>
-            {allUniquePlayerNames.map((name, index) => (
-              <Text key={index} style={[styles.cell, styles.headerText]}>{name}</Text>
-            ))}
+          {Object.keys(groupedGames).map((playerSet, setIndex) => (
+            <View key={setIndex} style={{ marginBottom: 50 }}>
+              {/* <Text style={styles.subTitle}>Player Set: {playerSet}</Text> */}
 
-            <Text style={[styles.actionCell, styles.headerText]}></Text>
-          </View>
+              {/* Header Row with Unique Player Names */}
+              <View style={styles.row}>
+                <Text style={[styles.cell, styles.headerText]}>Game</Text>
+                {groupedGames[playerSet][0].map((player, index) => (
+                  <Text key={index} style={[styles.cell, styles.headerText]}>{player.name}</Text>
+                ))}
+                <Text style={[styles.actionCell, styles.headerText]}></Text>
+              </View>
 
-          {/* Game Data Rows */}
-          {games.map((game, gameIndex) => (
-            <View key={gameIndex} style={styles.row}>
-              <Text style={styles.cell}>{gameIndex + 1}</Text>
+              {/* Game Data Rows */}
+              {groupedGames[playerSet].map((game, gameIndex) => (
+                <View key={gameIndex} style={styles.row}>
+                  <Text style={styles.cell}>{gameIndex + 1}</Text>
+                  {groupedGames[playerSet][0].map((player) => {
+                    const playerData = game.find(p => p.name === player.name);
+                    return (
+                      <Text key={player.name} style={styles.cell}>
+                        {playerData ? playerData.pointsCollected : 0} {/* Show 0 if player is not in this game */}
+                      </Text>
+                    );
+                  })}
 
-              {allUniquePlayerNames.map((playerName, playerIndex) => {
-                const player = game.find(p => p.name === playerName);
-                return (
-                  <Text key={playerIndex} style={styles.cell}>
-                    {player ? player.pointsCollected : 0} {/* Show 0 if player is not in this game */}
-                  </Text>
-                );
-              })}
+                  <TouchableOpacity style={styles.actionCell} onPress={() => removePointsData(gameIndex)}>
+                    <Icon name="remove-circle" size={24} color="red" />
+                  </TouchableOpacity>
+                </View>
+              ))}
 
-              <TouchableOpacity style={styles.actionCell} onPress={() => removePointsData(gameIndex)}>
-                <Icon name="remove-circle" size={24} color="red" />
-              </TouchableOpacity>
+              {/* Totals Section */}
+              <View style={styles.row}>
+                <Text style={[styles.cell, styles.headerText]}>Points</Text>
+                {groupedGames[playerSet][0].map((player, index) => {
+                  const totalPoints = groupedGames[playerSet].reduce((acc, curr) => {
+                    const playerData = curr.find(p => p.name === player.name);
+                    return acc + (playerData ? playerData.pointsCollected : 0);
+                  }, 0);
+                  return <Text key={index} style={[styles.cell, styles.headerText]}>{totalPoints}</Text>;
+                })}
+                <Text style={[styles.actionCell, styles.headerText]}></Text>
+              </View>
+
+              <View style={styles.row}>
+                <Text style={[styles.cell, styles.headerText]}> $$$ </Text>
+                {groupedGames[playerSet][0].map((player, index) => {
+                  const totalPoints = groupedGames[playerSet].reduce((acc, curr) => {
+                    const playerData = curr.find(p => p.name === player.name);
+                    return acc + (playerData ? playerData.pointsCollected : 0);
+                  }, 0);
+                  const multipliedPoints = totalPoints * pointRate;
+                  return <Text key={index} style={[styles.cell, styles.headerText]}>{multipliedPoints}</Text>;
+                })}
+                <Text style={[styles.actionCell, styles.headerText]}></Text>
+              </View>
             </View>
           ))}
         </View>
       </ScrollView>
-
-      {/* Totals Section */}
-      <View style={{ marginBottom: 20 }}>
-        <View style={styles.row}>
-          <Text style={[styles.cell, styles.headerText]}>Points</Text>
-          {allUniquePlayerNames.map((name, index) => {
-            const totalPoints = games.reduce((acc, curr) => {
-              const player = curr.find(p => p.name === name);
-              return acc + (player ? player.pointsCollected : 0);
-            }, 0);
-            return <Text key={index} style={[styles.cell, styles.headerText]}>{totalPoints}</Text>;
-          })}
-          <Text style={[styles.actionCell, styles.headerText]}></Text>
-        </View>
-
-        <View style={styles.row}>
-          <Text style={[styles.cell, styles.headerText]}> $$$ </Text>
-          {allUniquePlayerNames.map((name, index) => {
-            const totalPoints = games.reduce((acc, curr) => {
-              const player = curr.find(p => p.name === name);
-              return acc + (player ? player.pointsCollected : 0);
-            }, 0);
-            const multipliedPoints = totalPoints * pointRate;
-            return <Text key={index} style={[styles.cell, styles.headerText]}>{multipliedPoints}</Text>;
-          })}
-          <Text style={[styles.actionCell, styles.headerText]}></Text>
-        </View>
-      </View>
     </View>
   );
 };
@@ -261,6 +278,13 @@ const getStyles = (isDarkMode: boolean) =>
       fontSize: 24,
       fontWeight: 'bold',
       marginBottom: 20,
+      textAlign: 'center',
+      color: isDarkMode ? 'white' : 'black',
+    },
+    subTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      marginBottom: 10,
       textAlign: 'center',
       color: isDarkMode ? 'white' : 'black',
     },
