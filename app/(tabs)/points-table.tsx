@@ -11,41 +11,38 @@ type PlayerResult = {
 
 // PointsTable component
 const PointsTable: React.FC = () => {
-  const [games, setGames] = useState<PlayerResult[][] | null>(null); // State to store multiple games with players
-  const [loading, setLoading] = useState<boolean>(true); // State to manage loading
-  const [refreshing, setRefreshing] = useState<boolean>(false); // State to manage pull-to-refresh
-  const colorScheme = useColorScheme(); // Detect system's color scheme (light or dark)
+  const [games, setGames] = useState<PlayerResult[][] | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const colorScheme = useColorScheme();
   const isDarkMode = colorScheme === 'dark';
   const styles = getStyles(isDarkMode);
   const [pointRate, setPointRate] = useState(0);
+
+  useEffect(() => {
+    fetchGames();
+  }, []);
 
   // Fetch games from AsyncStorage
   const fetchGames = async () => {
     try {
       const pointsData = await AsyncStorage.getItem('points_table');
-      console.log('Fetched data:', pointsData); // Log fetched data
       if (pointsData) {
         const parsedData: PlayerResult[][] = JSON.parse(pointsData);
-        console.log('Parsed data:', parsedData); // Log parsed data
         if (Array.isArray(parsedData)) {
-          setGames(parsedData); // Set state with parsed games data
+          setGames(parsedData);
         } else {
-          console.error("Invalid data structure: Expected an array of arrays of players.");
-          setGames(null); // Safeguard in case the structure is invalid
+          setGames(null); // Handle invalid data structure
         }
       } else {
-        setGames(null); // Handle case if no data is present
+        setGames(null); // Handle no data
       }
     } catch (error) {
       console.error('Error retrieving points table:', error);
     } finally {
-      setLoading(false); // Set loading to false once data is fetched
+      setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchGames();
-  }, []);
 
   // Clear history (remove points_table from AsyncStorage)
   const clearHistory = async () => {
@@ -53,6 +50,7 @@ const PointsTable: React.FC = () => {
       await AsyncStorage.removeItem('points_table');
       setGames(null); // Clear the state
       Alert.alert("History cleared", "The points table has been cleared.");
+      fetchGames(); // Re-fetch games to ensure state consistency
     } catch (error) {
       console.error('Error clearing history:', error);
       Alert.alert("Error", "Unable to clear history.");
@@ -75,6 +73,7 @@ const PointsTable: React.FC = () => {
       return 0;
     }
   };
+
   useEffect(() => {
     const fetchPointRate = async () => {
       const rate = await getPointRate();
@@ -83,13 +82,21 @@ const PointsTable: React.FC = () => {
     fetchPointRate();
   }, []);
 
+  // Utility function to extract unique player names
+  const getAllUniquePlayerNames = (games: PlayerResult[][]): string[] => {
+    const allPlayerNames = games.flatMap(game => game.map(player => player.name));
+    return Array.from(new Set(allPlayerNames)); // Ensure uniqueness
+  };
+
   const playerNamesFromFirstGame = (games?.[0] || []).map(player => player.name);
+
+  const allUniquePlayerNames = games ? getAllUniquePlayerNames(games) : [];
 
   // Pull-to-refresh handler
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchGames(); // Re-fetch the games
-    setRefreshing(false); // Stop the refreshing indicator
+    await fetchGames();
+    setRefreshing(false);
   };
 
   if (loading) {
@@ -116,11 +123,25 @@ const PointsTable: React.FC = () => {
   }
 
   const removePointsData = (gameIndex: number) => {
-    const updatedGames = games.filter((_, index) => index !== gameIndex);
-    setGames(updatedGames);
-    AsyncStorage.setItem('points_table', JSON.stringify(updatedGames));
-    Alert.alert("Game removed", "The game has been removed from the points table.");
+    Alert.alert(
+      'Remove Game',
+      'Are you sure you want to remove this game?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Yes',
+          onPress: async () => {
+            const updatedGames = games.filter((_, index) => index !== gameIndex);
+            setGames(updatedGames);
+            await AsyncStorage.setItem('points_table', JSON.stringify(updatedGames));
+            Alert.alert("Game removed", "The game has been removed from the points table.");
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
+
 
   return (
     <View style={{ flex: 1 }}>
@@ -133,49 +154,62 @@ const PointsTable: React.FC = () => {
         <View style={{ flex: 1, justifyContent: 'flex-start' }}>
           <Button title="Clear History" onPress={clearHistory} />
           <Text style={styles.title}>Points Table</Text>
+
+          {/* Header Row with Unique Player Names */}
           <View style={styles.row}>
             <Text style={[styles.cell, styles.headerText]}>Game</Text>
-            {playerNamesFromFirstGame.map((name, index) => (
+            {allUniquePlayerNames.map((name, index) => (
               <Text key={index} style={[styles.cell, styles.headerText]}>{name}</Text>
             ))}
+
             <Text style={[styles.actionCell, styles.headerText]}></Text>
           </View>
 
+          {/* Game Data Rows */}
           {games.map((game, gameIndex) => (
             <View key={gameIndex} style={styles.row}>
               <Text style={styles.cell}>{gameIndex + 1}</Text>
 
-              {game.map((player, playerIndex) => (
-                <Text key={playerIndex} style={styles.cell}>
-                  {player.pointsCollected}
-                </Text>
-              ))}
+              {allUniquePlayerNames.map((playerName, playerIndex) => {
+                const player = game.find(p => p.name === playerName);
+                return (
+                  <Text key={playerIndex} style={styles.cell}>
+                    {player ? player.pointsCollected : 0} {/* Show 0 if player is not in this game */}
+                  </Text>
+                );
+              })}
 
               <TouchableOpacity style={styles.actionCell} onPress={() => removePointsData(gameIndex)}>
                 <Icon name="remove-circle" size={24} color="red" />
               </TouchableOpacity>
             </View>
           ))}
-
         </View>
       </ScrollView>
 
+      {/* Totals Section */}
       <View style={{ marginBottom: 20 }}>
         <View style={styles.row}>
           <Text style={[styles.cell, styles.headerText]}>Points</Text>
-          {playerNamesFromFirstGame.map((name, index) => {
-            const totalPoints = games.reduce((acc, curr) => acc + curr[index].pointsCollected, 0)
-            return <Text key={index} style={[styles.cell, styles.headerText]}>{totalPoints}</Text>
+          {allUniquePlayerNames.map((name, index) => {
+            const totalPoints = games.reduce((acc, curr) => {
+              const player = curr.find(p => p.name === name);
+              return acc + (player ? player.pointsCollected : 0);
+            }, 0);
+            return <Text key={index} style={[styles.cell, styles.headerText]}>{totalPoints}</Text>;
           })}
           <Text style={[styles.actionCell, styles.headerText]}></Text>
         </View>
 
         <View style={styles.row}>
           <Text style={[styles.cell, styles.headerText]}> $$$ </Text>
-          {playerNamesFromFirstGame.map((name, index) => {
-            const totalPoints = games.reduce((acc, curr) => acc + curr[index].pointsCollected, 0)
+          {allUniquePlayerNames.map((name, index) => {
+            const totalPoints = games.reduce((acc, curr) => {
+              const player = curr.find(p => p.name === name);
+              return acc + (player ? player.pointsCollected : 0);
+            }, 0);
             const multipliedPoints = totalPoints * pointRate;
-            return <Text key={index} style={[styles.cell, styles.headerText]}>{multipliedPoints}</Text>
+            return <Text key={index} style={[styles.cell, styles.headerText]}>{multipliedPoints}</Text>;
           })}
           <Text style={[styles.actionCell, styles.headerText]}></Text>
         </View>
@@ -205,7 +239,7 @@ const getStyles = (isDarkMode: boolean) =>
       borderBottomColor: '#ddd',
     },
     cell: {
-      flex: 1,
+      flex: 2,
       fontSize: 16,
       textAlign: 'center',
       padding: 8,
@@ -213,7 +247,8 @@ const getStyles = (isDarkMode: boolean) =>
     },
     actionCell: {
       flex: 1,
-      padding: 8,
+      paddingTop: 8,
+      paddingBottom: 8,
       paddingRight: 0,
       color: isDarkMode ? 'white' : 'black',
     },
