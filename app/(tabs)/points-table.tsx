@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, useColorScheme, ActivityIndicator, Button, Alert, RefreshControl, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+//@ts-ignore
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
 // Define PlayerResult type
 type PlayerResult = {
   name: string;
   pointsCollected: number;
+  isWinner: boolean;
+  isFouler: boolean;
 };
 
 // PointsTable component
@@ -46,16 +49,34 @@ const PointsTable: React.FC = () => {
 
   // Clear history (remove points_table from AsyncStorage)
   const clearHistory = async () => {
-    try {
-      await AsyncStorage.removeItem('points_table');
-      setGames(null); // Clear the state
-      Alert.alert("History cleared", "The points table has been cleared.");
-      fetchGames(); // Re-fetch games to ensure state consistency
-    } catch (error) {
-      console.error('Error clearing history:', error);
-      Alert.alert("Error", "Unable to clear history.");
-    }
+    // Show a confirmation dialog before clearing history
+    Alert.alert(
+      "Clear History?",
+      "Are you sure you want to clear the points table? This action cannot be undone.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel", // 'Cancel' button closes the alert
+        },
+        {
+          text: "Yes, clear it",
+          onPress: async () => {
+            try {
+              await AsyncStorage.removeItem('points_table');
+              await AsyncStorage.removeItem('last_fouler');
+              setGames(null); // Clear the state
+              fetchGames(); // Re-fetch games to ensure state consistency
+            } catch (error) {
+              console.error('Error clearing history:', error);
+              Alert.alert("Error", "Unable to clear history.");
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
+
 
   const getPointRate = async (): Promise<number> => {
     try {

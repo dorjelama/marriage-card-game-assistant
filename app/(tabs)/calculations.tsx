@@ -20,6 +20,8 @@ type PlayerData = {
 type PlayerResult = {
   name: string;
   pointsCollected: number;
+  isWinner: boolean;
+  isFouler: boolean;
 };
 
 export default function CalculationsScreen() {
@@ -127,26 +129,65 @@ export default function CalculationsScreen() {
 
     const noOfPlayers = players.length; // Number of players
     const totalPoints = players.reduce((sum, player) => sum + player.points, 0); // Total points
-    let pointsCollected = 0;
+
+    // Retrieve the last game's fouler from AsyncStorage
+    let lastGameFouler: string | null = null;
+    let foulerHistoryNeedsCleaning = false;
+
+    try {
+      const foulerData = await AsyncStorage.getItem('last_fouler');
+      lastGameFouler = foulerData !== null ? JSON.parse(foulerData) : null; // Ensure null is handled properly
+
+      if (lastGameFouler) {
+        console.log("Last Game had fouler: " + lastGameFouler);
+        foulerHistoryNeedsCleaning = true;
+      }
+    } catch (error) {
+      console.error('Failed to retrieve last game fouler:', error);
+    }
 
     console.log('--------------------------------NEW GAME-----------------------------------------');
     console.log(`handleSubmit: noOfPlayers: ${noOfPlayers}, totalPoints: ${totalPoints}`);
 
     const playerResults: PlayerResult[] = [];
 
+    let pointsCollected = 0;
     let winnerPoints = 0;
 
     // Calculating points
-    players.forEach((player, index) => {
+    for (const [index, player] of players.entries()) {
       if (index === winnerIndex) {
         winnerPoints += (noOfPlayers * player.points) - totalPoints;
-        playerResults.push({ name: player.name, pointsCollected: winnerPoints });
+        if (player.dubleeOpened) {
+          winnerPoints += dubleeWinBonusPoints;
+        }
+
+        // Check if there's a last game's fouler, add the foul points to the winner
+        if (lastGameFouler) {
+          if (player.name !== lastGameFouler) {
+            winnerPoints += foulPoints;
+          }
+        }
+
+        playerResults.push({ name: player.name, pointsCollected: winnerPoints, isFouler: false, isWinner: true });
       } else {
+
         if (player.foul) {
-          // updateFoulHistory(player.name);
-          pointsCollected -= foulPoints;
-          playerResults.push({ name: player.name, pointsCollected }); // Add player name and pointsCollected to results
-          return;
+          player.points = 0;
+          try {
+            // Log the player's name before saving to AsyncStorage
+            console.log(`Setting fouler in AsyncStorage: ${player.name}`);
+
+            // Save the fouler's name to AsyncStorage
+            await AsyncStorage.setItem('last_fouler', JSON.stringify(player.name));
+
+            // Retrieve and log the stored fouler to confirm it's correctly saved
+            const storedFouler = await AsyncStorage.getItem('last_fouler');
+            console.log('Fouler set in AsyncStorage:', storedFouler ? JSON.parse(storedFouler) : 'None');
+
+          } catch (error) {
+            console.error('Failed to store fouler:', error);
+          }
         }
 
         if (!player.seen) {
@@ -154,6 +195,15 @@ export default function CalculationsScreen() {
         }
 
         pointsCollected = (noOfPlayers * player.points) - totalPoints;
+
+        if (foulerHistoryNeedsCleaning) {
+          // Check if there's a last game's fouler, add the foul points to the winner
+          if (player.name === lastGameFouler) {
+            console.log(`Last Game Fouler: ${player.name}`);
+            console.log(`Foul Points: ${foulPoints}`);
+            pointsCollected -= foulPoints;
+          }
+        }
 
         if (player.seen) {
           winnerPoints += seenPoints;
@@ -169,14 +219,23 @@ export default function CalculationsScreen() {
 
         console.log(`handleSubmit: Player: ${player.name}, IsSeen: ${player.seen ? 'true' : 'false'}, pointsCollected: ${pointsCollected}`);
 
-        playerResults.push({ name: player.name, pointsCollected });
+        playerResults.push({ name: player.name, pointsCollected, isFouler: false, isWinner: false });
       }
-    });
+    }
+
+    if (foulerHistoryNeedsCleaning) {
+      try {
+        await AsyncStorage.removeItem('last_fouler');
+      } catch (error) {
+        console.error('Failed to remove last game fouler:', error);
+      }
+    }
 
     const winnerResult = playerResults.find((result) => result.name === players[winnerIndex].name);
     if (winnerResult) {
       winnerResult.pointsCollected = winnerPoints;
     }
+    console.log(`handleSubmit: winnerPoints: ${winnerPoints}`);
 
     try {
       const existingHistory = await AsyncStorage.getItem('points_table');
@@ -186,35 +245,13 @@ export default function CalculationsScreen() {
 
       await AsyncStorage.setItem('points_table', JSON.stringify(history));
 
-      Alert.alert(
-        'Calculation Complete'
-      );
+      Alert.alert('Calculation Complete');
 
     } catch (error) {
       console.error('Failed to save points table to AsyncStorage:', error);
       Alert.alert('Error', 'Failed to save calculation data. Please try again.');
     }
   };
-
-  // // Function to update foul history
-  // async function updateFoulHistory(playerName: string) {
-  //   try {
-  //     // Retrieve existing foul history from AsyncStorage
-  //     const history = await AsyncStorage.getItem('foulHistory');
-  //     const parsedHistory = history ? JSON.parse(history) : {};
-
-  //     // Update the history for the player
-  //     if (!parsedHistory[playerName]) {
-  //       parsedHistory[playerName] = [];
-  //     }
-  //     parsedHistory[playerName].push(new Date().toISOString()); // Log the foul with a timestamp
-
-  //     // Save the updated history back to AsyncStorage
-  //     await AsyncStorage.setItem('foulHistory', JSON.stringify(parsedHistory));
-  //   } catch (error) {
-  //     console.error('Failed to update foul history:', error);
-  //   }
-  // }
 
   return (
     <ScrollView

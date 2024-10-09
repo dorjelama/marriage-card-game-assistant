@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "marriage-card-game-helper",
+    "name": "Marriage Card Game Assistant",
     "slug": "marriage-card-game-helper",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -16,6 +16,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.marriagecardgameassitant",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -31,6 +32,12 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "920bfe18-ab71-4d41-9b92-d6bcdb3e7874"
+      }
+    },
+    "owner": "dorjelama08"
   }
 }
